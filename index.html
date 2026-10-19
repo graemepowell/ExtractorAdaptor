@@ -175,9 +175,9 @@
     }
   </style>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Reliable CDN bundle loading -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-
 </head>
 <body>
 
@@ -188,7 +188,7 @@
     </div>
 
     <div class="controls">
-      <!-- INPUT PORT (END A: Bottom Base) -->
+      <!-- INPUT PORT (END A) -->
       <div class="section-title">End A (Bottom Port)</div>
       <div class="control-group">
         <div class="control-label">
@@ -212,7 +212,7 @@
         <input type="range" id="in-len" min="15" max="100" value="40" step="1">
       </div>
 
-      <!-- OUTPUT PORT (END B: Top) -->
+      <!-- OUTPUT PORT (END B) -->
       <div class="section-title" style="margin-top: 10px;">End B (Top Port)</div>
       <div class="control-group">
         <div class="control-label">
@@ -236,7 +236,7 @@
         <input type="range" id="out-len" min="15" max="100" value="40" step="1">
       </div>
 
-      <!-- ADAPTER GEOMETRY & FEATURES -->
+      <!-- ADAPTER GEOMETRY -->
       <div class="section-title" style="margin-top: 10px;">Adapter Geometry</div>
       <div class="control-group">
         <div class="control-label">
@@ -256,7 +256,7 @@
         <input type="range" id="wall" min="1.5" max="6.0" value="3.5" step="0.5">
       </div>
 
-      <!-- ENHANCEMENTS -->
+      <!-- OPTIONS -->
       <div class="section-title" style="margin-top: 10px;">Print & Hose Options</div>
       <label class="checkbox-group">
         <span>Add Hose Barbs (Male ports)</span>
@@ -282,11 +282,17 @@
   </div>
 
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      if (typeof THREE === 'undefined' || typeof THREE.OrbitControls === 'undefined') {
+    window.addEventListener('load', () => {
+      // Determine OrbitControls location across different bundlers
+      const OrbitControlsConstructor = (typeof THREE !== 'undefined' && THREE.OrbitControls) ? THREE.OrbitControls : (typeof OrbitControls !== 'undefined' ? OrbitControls : null);
+
+      if (typeof THREE === 'undefined' || !OrbitControlsConstructor) {
         document.getElementById('error-box').style.display = 'block';
         return;
       }
+
+      // Hide error box if libraries loaded successfully
+      document.getElementById('error-box').style.display = 'none';
 
       // --- APP STATE ---
       const params = {
@@ -314,7 +320,7 @@
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       container.appendChild(renderer.domElement);
 
-      const controls = new OrbitControlsRef(camera, renderer.domElement);
+      const controls = new OrbitControlsConstructor(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.target.set(0, 50, 0);
@@ -327,82 +333,4 @@
       dirLight1.position.set(100, 200, 100);
       scene.add(dirLight1);
 
-      const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.3);
-      dirLight2.position.set(-100, -100, -100);
-      scene.add(dirLight2);
-
-      // Grid Floor
-      const gridHelper = new THREE.GridHelper(300, 30, 0x334155, 0x1e293b);
-      gridHelper.position.y = 0;
-      scene.add(gridHelper);
-
-      const adapterMaterial = new THREE.MeshStandardMaterial({
-        color: 0x0284c7,
-        roughness: 0.3,
-        metalness: 0.1,
-        side: THREE.DoubleSide
-      });
-
-      let currentMesh = null;
-
-      // --- OVERHANG CALCULATOR ---
-      function calculateSecureTaper(inR, outR, requestedTaper) {
-        const radiusDelta = Math.abs(inR - outR);
-        const minTaperNeeded = radiusDelta; // 45 degree limit (tan 45 = 1)
-
-        if (requestedTaper < minTaperNeeded) {
-          document.getElementById('overhang-warn').style.display = 'block';
-          return Math.ceil(minTaperNeeded);
-        } else {
-          document.getElementById('overhang-warn').style.display = 'none';
-          return requestedTaper;
-        }
-      }
-
-      // --- GEOMETRY GENERATION ---
-      function generateAdapterGeometry() {
-        const points = [];
-        const segments = 64;
-        const chamferSize = 1.5; // Fixed 1.5mm lead-in chamfer
-
-        // End A (Bottom Port)
-        const inRadOuterBottom = params.inFit === 'external' ? params.inDia / 2 : (params.inDia / 2) + params.wall;
-        const inRadOuterTop = params.inFit === 'external' ? (params.inDia * 0.99) / 2 : (params.inDia / 2) + params.wall;
-        const inRadInnerBottom = params.inFit === 'external' ? inRadOuterBottom - params.wall : params.inDia / 2;
-        const inRadInnerTop = params.inFit === 'external' ? inRadOuterTop - params.wall : params.inDia / 2;
-
-        // End B (Top Port)
-        const outRadOuterBottom = params.outFit === 'external' ? (params.outDia * 0.99) / 2 : (params.outDia / 2) + params.wall;
-        const outRadOuterTop = params.outFit === 'external' ? params.outDia / 2 : (params.outDia / 2) + params.wall;
-        const outRadInnerBottom = params.outFit === 'external' ? outRadOuterBottom - params.wall : params.outDia / 2;
-        const outRadInnerTop = params.outFit === 'external' ? outRadOuterTop - params.wall : params.outDia / 2;
-
-        const safeTaperLen = calculateSecureTaper(inRadOuterTop, outRadOuterBottom, params.taperLen);
-
-        const y0 = 0;
-        const y1 = params.inLen;
-        const y2 = params.inLen + safeTaperLen;
-        const y3 = params.inLen + safeTaperLen + params.outLen;
-
-        // --- OUTER PROFILE (Upward) ---
-        // Integrated Brim (Mouse Ear Base Rim)
-        if (params.brim) {
-          const brimWidth = 12.0;
-          const brimHeight = 0.4; // 2 print layers high
-          points.push(new THREE.Vector2(inRadOuterBottom + brimWidth, y0));
-          points.push(new THREE.Vector2(inRadOuterBottom + brimWidth, brimHeight));
-          points.push(new THREE.Vector2(inRadOuterBottom, brimHeight));
-        } else {
-          // Bottom Chamfer on Male outer edge
-          if (params.inFit === 'external') {
-            points.push(new THREE.Vector2(inRadOuterBottom - chamferSize, y0));
-            points.push(new THREE.Vector2(inRadOuterBottom, chamferSize));
-          } else {
-            points.push(new THREE.Vector2(inRadOuterBottom, y0));
-          }
-        }
-
-        // End A Outer Wall & Hose Barbs
-        if (params.inFit === 'external' && params.barbs) {
-          const numBarbs = 2;
-          const barbStep = (y1 - (params.brim ? 0.4 : chamferSize) - 5) / numBarbs;
+      const dirLight2 = new THREE.DirectionalLight
