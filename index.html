@@ -1,10 +1,10 @@
-<!-- ExtractorAdaptor - Version 1.3.1 -->
+<!-- ExtractorAdaptor - Version 1.3.2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Printable Dust Extraction Hose Adapter Generator (v1.3.1)</title>
+  <title>3D Printable Dust Extraction Hose Adapter Generator (v1.3.2)</title>
   <style>
     :root {
       --bg-color: #0f172a;
@@ -199,7 +199,7 @@
     <div class="header">
       <div class="header-title-row">
         <h1>Dust Adapter Generator</h1>
-        <span class="version-tag">v1.3.1</span>
+        <span class="version-tag">v1.3.2</span>
       </div>
       <p>Parametric 3D printable vacuum adapters (Support-free)</p>
     </div>
@@ -373,13 +373,15 @@
         const radiusDelta = Math.abs(inR - outR);
         const minTaperNeeded = radiusDelta;
 
-        if (requestedTaper < minTaperNeeded) {
-          document.getElementById('overhang-warn').style.display = 'block';
-          return Math.ceil(minTaperNeeded);
-        } else {
-          document.getElementById('overhang-warn').style.display = 'none';
-          return requestedTaper;
+        const warnElem = document.getElementById('overhang-warn');
+        if (warnElem) {
+          if (requestedTaper < minTaperNeeded) {
+            warnElem.style.display = 'block';
+          } else {
+            warnElem.style.display = 'none';
+          }
         }
+        return requestedTaper < minTaperNeeded ? Math.ceil(minTaperNeeded) : requestedTaper;
       }
 
       // --- GEOMETRY GENERATION ---
@@ -401,10 +403,12 @@
 
         // Display warning banner if brim is enabled AND base is External (Male)
         const brimWarn = document.getElementById('brim-warn');
-        if (bottomFit === 'external' && params.brim) {
-          brimWarn.style.display = 'block';
-        } else {
-          brimWarn.style.display = 'none';
+        if (brimWarn) {
+          if (bottomFit === 'external' && params.brim) {
+            brimWarn.style.display = 'block';
+          } else {
+            brimWarn.style.display = 'none';
+          }
         }
 
         // Bottom Radii Calculations
@@ -431,4 +435,5 @@
           const brimWidth = 12.0;
           const brimHeight = 0.4;
           points.push(new THREE.Vector2(botRadOuterBottom + brimWidth, y0));
-          points.push(new THREE.Vector
+          points.push(new THREE.Vector2(botRadOuterBottom + brimWidth, brimHeight));
+          points.push(new THREE.Vector2(botRadOuterBottom,
