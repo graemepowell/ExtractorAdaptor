@@ -1,10 +1,10 @@
-<!-- ExtractorAdaptor - Version 1.1.1 -->
+<!-- ExtractorAdaptor - Version 1.2.0 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Printable Dust Extraction Hose Adapter Generator (v1.1.1)</title>
+  <title>3D Printable Dust Extraction Hose Adapter Generator (v1.2.0)</title>
   <style>
     :root {
       --bg-color: #0f172a;
@@ -199,14 +199,14 @@
     <div class="header">
       <div class="header-title-row">
         <h1>Dust Adapter Generator</h1>
-        <span class="version-tag">v1.1.1</span>
+        <span class="version-tag">v1.2.0</span>
       </div>
       <p>Parametric 3D printable vacuum adapters (Support-free)</p>
     </div>
 
     <div class="controls">
-      <!-- INPUT PORT (END A) -->
-      <div class="section-title">End A (Bottom Port)</div>
+      <!-- PORT A -->
+      <div class="section-title">Port A</div>
       <div class="control-group">
         <div class="control-label">
           <span>Diameter (mm)</span>
@@ -229,8 +229,8 @@
         <input type="range" id="in-len" min="15" max="100" value="40" step="1">
       </div>
 
-      <!-- OUTPUT PORT (END B) -->
-      <div class="section-title" style="margin-top: 10px;">End B (Top Port)</div>
+      <!-- PORT B -->
+      <div class="section-title" style="margin-top: 10px;">Port B</div>
       <div class="control-group">
         <div class="control-label">
           <span>Diameter (mm)</span>
@@ -262,7 +262,7 @@
         </div>
         <input type="range" id="taper-len" min="5" max="150" value="40" step="1">
         <div id="overhang-warn" class="warning-banner">
-          ⚠️ <strong>Overhang Limit Enforced:</strong> Taper length has been adjusted to ensure support-free 3D printing (maximum 45° angle limit met!).
+          ⚠️ <strong>Overhang Limit Enforced:</strong> Taper length adjusted for maximum 45° steepness limit.
         </div>
       </div>
       <div class="control-group">
@@ -328,7 +328,7 @@
       const scene = new THREE.Scene();
       
       const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 1000);
-      camera.position.set(0, 150, 250);
+      camera.position.set(0, 120, 240);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(container.clientWidth, container.clientHeight);
@@ -366,7 +366,6 @@
 
       let currentMesh = null;
 
-      // --- OVERHANG CALCULATOR ---
       function calculateSecureTaper(inR, outR, requestedTaper) {
         const radiusDelta = Math.abs(inR - outR);
         const minTaperNeeded = radiusDelta;
@@ -380,111 +379,120 @@
         }
       }
 
-      // --- GEOMETRY GENERATION ---
+      // --- GEOMETRY GENERATION (WIDE BASE AT BOTTOM) ---
       function generateAdapterGeometry() {
         const points = [];
         const segments = 64;
         const chamferSize = 1.5;
 
-        // End A
-        const inRadOuterBottom = params.inFit === 'external' ? params.inDia / 2 : (params.inDia / 2) + params.wall;
-        const inRadOuterTop = params.inFit === 'external' ? (params.inDia * 0.99) / 2 : (params.inDia / 2) + params.wall;
-        const inRadInnerBottom = params.inFit === 'external' ? inRadOuterBottom - params.wall : params.inDia / 2;
-        const inRadInnerTop = params.inFit === 'external' ? inRadOuterTop - params.wall : params.inDia / 2;
+        // Determine which end is larger to set as the bottom base
+        const isA_Larger = params.inDia >= params.outDia;
 
-        // End B
-        const outRadOuterBottom = params.outFit === 'external' ? (params.outDia * 0.99) / 2 : (params.outDia / 2) + params.wall;
-        const outRadOuterTop = params.outFit === 'external' ? params.outDia / 2 : (params.outDia / 2) + params.wall;
-        const outRadInnerBottom = params.outFit === 'external' ? outRadOuterBottom - params.wall : params.outDia / 2;
-        const outRadInnerTop = params.outFit === 'external' ? outRadOuterTop - params.wall : params.outDia / 2;
+        const bottomDia = isA_Larger ? params.inDia : params.outDia;
+        const bottomFit = isA_Larger ? params.inFit : params.outFit;
+        const bottomLen = isA_Larger ? params.inLen : params.outLen;
 
-        const safeTaperLen = calculateSecureTaper(inRadOuterTop, outRadOuterBottom, params.taperLen);
+        const topDia = isA_Larger ? params.outDia : params.inDia;
+        const topFit = isA_Larger ? params.outFit : params.inFit;
+        const topLen = isA_Larger ? params.outLen : params.inLen;
+
+        // Bottom Radii Calculations
+        const botRadOuterBottom = bottomFit === 'external' ? bottomDia / 2 : (bottomDia / 2) + params.wall;
+        const botRadOuterTop = bottomFit === 'external' ? (bottomDia * 0.99) / 2 : (bottomDia / 2) + params.wall;
+        const botRadInnerBottom = bottomFit === 'external' ? botRadOuterBottom - params.wall : bottomDia / 2;
+        const botRadInnerTop = bottomFit === 'external' ? botRadOuterTop - params.wall : bottomDia / 2;
+
+        // Top Radii Calculations
+        const topRadOuterBottom = topFit === 'external' ? (topDia * 0.99) / 2 : (topDia / 2) + params.wall;
+        const topRadOuterTop = topFit === 'external' ? topDia / 2 : (topDia / 2) + params.wall;
+        const topRadInnerBottom = topFit === 'external' ? topRadOuterBottom - params.wall : topDia / 2;
+        const topRadInnerTop = topFit === 'external' ? topRadOuterTop - params.wall : topDia / 2;
+
+        const safeTaperLen = calculateSecureTaper(botRadOuterTop, topRadOuterBottom, params.taperLen);
 
         const y0 = 0;
-        const y1 = params.inLen;
-        const y2 = params.inLen + safeTaperLen;
-        const y3 = params.inLen + safeTaperLen + params.outLen;
+        const y1 = bottomLen;
+        const y2 = bottomLen + safeTaperLen;
+        const y3 = bottomLen + safeTaperLen + topLen;
 
-        // OUTER PROFILE
+        // --- OUTER PROFILE ---
         if (params.brim) {
           const brimWidth = 12.0;
           const brimHeight = 0.4;
-          points.push(new THREE.Vector2(inRadOuterBottom + brimWidth, y0));
-          points.push(new THREE.Vector2(inRadOuterBottom + brimWidth, brimHeight));
-          points.push(new THREE.Vector2(inRadOuterBottom, brimHeight));
+          points.push(new THREE.Vector2(botRadOuterBottom + brimWidth, y0));
+          points.push(new THREE.Vector2(botRadOuterBottom + brimWidth, brimHeight));
+          points.push(new THREE.Vector2(botRadOuterBottom, brimHeight));
         } else {
-          if (params.inFit === 'external') {
-            points.push(new THREE.Vector2(inRadOuterBottom - chamferSize, y0));
-            points.push(new THREE.Vector2(inRadOuterBottom, chamferSize));
+          if (bottomFit === 'external') {
+            points.push(new THREE.Vector2(botRadOuterBottom - chamferSize, y0));
+            points.push(new THREE.Vector2(botRadOuterBottom, chamferSize));
           } else {
-            points.push(new THREE.Vector2(inRadOuterBottom, y0));
+            points.push(new THREE.Vector2(botRadOuterBottom, y0));
           }
         }
 
-        if (params.inFit === 'external' && params.barbs) {
+        if (bottomFit === 'external' && params.barbs) {
           const numBarbs = 2;
           const barbStep = (y1 - (params.brim ? 0.4 : chamferSize) - 5) / numBarbs;
           let currentY = (params.brim ? 0.4 : chamferSize) + 5;
-          
           for (let i = 0; i < numBarbs; i++) {
-            points.push(new THREE.Vector2(inRadOuterBottom, currentY));
-            points.push(new THREE.Vector2(inRadOuterBottom + 0.8, currentY + 1.5));
-            points.push(new THREE.Vector2(inRadOuterBottom, currentY + 2.0));
+            points.push(new THREE.Vector2(botRadOuterBottom, currentY));
+            points.push(new THREE.Vector2(botRadOuterBottom + 0.8, currentY + 1.5));
+            points.push(new THREE.Vector2(botRadOuterBottom, currentY + 2.0));
             currentY += barbStep;
           }
         }
         
-        points.push(new THREE.Vector2(inRadOuterTop, y1));
-        points.push(new THREE.Vector2(outRadOuterBottom, y2));
+        points.push(new THREE.Vector2(botRadOuterTop, y1));
+        points.push(new THREE.Vector2(topRadOuterBottom, y2));
 
-        if (params.outFit === 'external' && params.barbs) {
+        if (topFit === 'external' && params.barbs) {
           const numBarbs = 2;
-          const barbStep = (params.outLen - chamferSize - 5) / numBarbs;
+          const barbStep = (topLen - chamferSize - 5) / numBarbs;
           let currentY = y2 + 5;
-
           for (let i = 0; i < numBarbs; i++) {
-            points.push(new THREE.Vector2(outRadOuterBottom, currentY));
-            points.push(new THREE.Vector2(outRadOuterBottom + 0.8, currentY + 1.5));
-            points.push(new THREE.Vector2(outRadOuterBottom, currentY + 2.0));
+            points.push(new THREE.Vector2(topRadOuterBottom, currentY));
+            points.push(new THREE.Vector2(topRadOuterBottom + 0.8, currentY + 1.5));
+            points.push(new THREE.Vector2(topRadOuterBottom, currentY + 2.0));
             currentY += barbStep;
           }
         }
 
-        if (params.outFit === 'external') {
-          points.push(new THREE.Vector2(outRadOuterTop, y3 - chamferSize));
-          points.push(new THREE.Vector2(outRadOuterTop - chamferSize, y3));
+        if (topFit === 'external') {
+          points.push(new THREE.Vector2(topRadOuterTop, y3 - chamferSize));
+          points.push(new THREE.Vector2(topRadOuterTop - chamferSize, y3));
         } else {
-          points.push(new THREE.Vector2(outRadOuterTop, y3));
+          points.push(new THREE.Vector2(topRadOuterTop, y3));
         }
 
-        // INNER PROFILE
-        if (params.outFit === 'internal') {
-          points.push(new THREE.Vector2(outRadInnerTop + chamferSize, y3));
-          points.push(new THREE.Vector2(outRadInnerTop, y3 - chamferSize));
+        // --- INNER BORE PROFILE ---
+        if (topFit === 'internal') {
+          points.push(new THREE.Vector2(topRadInnerTop + chamferSize, y3));
+          points.push(new THREE.Vector2(topRadInnerTop, y3 - chamferSize));
         } else {
-          points.push(new THREE.Vector2(outRadInnerTop, y3));
+          points.push(new THREE.Vector2(topRadInnerTop, y3));
         }
 
-        points.push(new THREE.Vector2(outRadInnerBottom, y2));
-        points.push(new THREE.Vector2(inRadInnerTop, y1));
+        points.push(new THREE.Vector2(topRadInnerBottom, y2));
+        points.push(new THREE.Vector2(botRadInnerTop, y1));
 
-        if (params.inFit === 'internal') {
-          points.push(new THREE.Vector2(inRadInnerBottom, y0 + chamferSize));
-          points.push(new THREE.Vector2(inRadInnerBottom + chamferSize, y0));
+        if (bottomFit === 'internal') {
+          points.push(new THREE.Vector2(botRadInnerBottom, y0 + chamferSize));
+          points.push(new THREE.Vector2(botRadInnerBottom + chamferSize, y0));
         } else {
-          points.push(new THREE.Vector2(inRadInnerBottom, y0));
+          points.push(new THREE.Vector2(botRadInnerBottom, y0));
         }
 
         if (params.brim) {
-          points.push(new THREE.Vector2(inRadOuterBottom + 12.0, y0));
-        } else if (params.inFit === 'external') {
-          points.push(new THREE.Vector2(inRadOuterBottom - chamferSize, y0));
+          points.push(new THREE.Vector2(botRadOuterBottom + 12.0, y0));
+        } else if (bottomFit === 'external') {
+          points.push(new THREE.Vector2(botRadOuterBottom - chamferSize, y0));
         } else {
-          points.push(new THREE.Vector2(inRadOuterBottom, y0));
+          points.push(new THREE.Vector2(botRadOuterBottom, y0));
         }
 
+        // Generate geometry natively along Y (Upright axis)
         const geometry = new THREE.LatheGeometry(points, segments);
-        geometry.rotateX(-Math.PI / 2);
         geometry.computeVertexNormals();
         return geometry;
       }
@@ -497,14 +505,10 @@
 
         const geom = generateAdapterGeometry();
         currentMesh = new THREE.Mesh(geom, adapterMaterial);
-        
-        const bbox = new THREE.Box3().setFromObject(currentMesh);
-        currentMesh.position.y = -bbox.min.y;
-
         scene.add(currentMesh);
       }
 
-      // --- UI EVENT LISTENERS ---
+      // --- UI LISTENERS ---
       function bindSlider(id, paramKey, displayId) {
         const slider = document.getElementById(id);
         slider.addEventListener('input', (e) => {
@@ -553,7 +557,9 @@
         if (!currentMesh) return;
 
         const geometry = currentMesh.geometry.clone();
-        geometry.applyMatrix4(currentMesh.matrixWorld);
+        
+        // Convert Y-up (Three.js) to Z-up (Standard STL Slicer Bed standard)
+        geometry.rotateX(Math.PI / 2);
 
         const position = geometry.attributes.position;
         const index = geometry.index;
@@ -579,24 +585,6 @@
             stlText += `    endloop\n`;
             stlText += `  endfacet\n`;
           }
-        } else {
-          for (let i = 0; i < position.count; i += 3) {
-            const a = getVector(i);
-            const b = getVector(i + 1);
-            const c = getVector(i + 2);
-
-            const cb = new THREE.Vector3().subVectors(c, b);
-            const ab = new THREE.Vector3().subVectors(a, b);
-            const normal = new THREE.Vector3().crossVectors(cb, ab).normalize();
-
-            stlText += `  facet normal ${normal.x} ${normal.y} ${normal.z}\n`;
-            stlText += `    outer loop\n`;
-            stlText += `      vertex ${a.x} ${a.y} ${a.z}\n`;
-            stlText += `      vertex ${b.x} ${b.y} ${b.z}\n`;
-            stlText += `      vertex ${c.x} ${c.y} ${c.z}\n`;
-            stlText += `    endloop\n`;
-            stlText += `  endfacet\n`;
-          }
         }
 
         stlText += 'endsolid vertical_dust_adapter\n';
@@ -604,12 +592,12 @@
         const blob = new Blob([stlText], { type: 'text/plain' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `vertical_dust_adapter_${params.inDia}mm_to_${params.outDia}mm.stl`;
+        link.download = `dust_adapter_${params.inDia}mm_to_${params.outDia}mm.stl`;
         link.click();
         URL.revokeObjectURL(link.href);
       });
 
-      // --- RENDER LOOP & RESIZE ---
+      // --- RENDER LOOP ---
       window.addEventListener('resize', () => {
         camera.aspect = container.clientWidth / container.clientHeight;
         camera.updateProjectionMatrix();
@@ -622,7 +610,6 @@
         renderer.render(scene, camera);
       }
 
-      // Initialize
       updateMesh();
       animate();
     });
