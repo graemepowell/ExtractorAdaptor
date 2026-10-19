@@ -1,10 +1,10 @@
-<!-- ExtractorAdaptor - Version 1.2.0 -->
+<!-- ExtractorAdaptor - Version 1.3.1 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Printable Dust Extraction Hose Adapter Generator (v1.2.0)</title>
+  <title>3D Printable Dust Extraction Hose Adapter Generator (v1.3.1)</title>
   <style>
     :root {
       --bg-color: #0f172a;
@@ -199,7 +199,7 @@
     <div class="header">
       <div class="header-title-row">
         <h1>Dust Adapter Generator</h1>
-        <span class="version-tag">v1.2.0</span>
+        <span class="version-tag">v1.3.1</span>
       </div>
       <p>Parametric 3D printable vacuum adapters (Support-free)</p>
     </div>
@@ -279,10 +279,13 @@
         <span>Add Hose Barbs (Male ports)</span>
         <input type="checkbox" id="chk-barbs">
       </label>
-      <label class="checkbox-group">
-        <span>Add Integrated Bed Brim (Mouse Ear)</span>
-        <input type="checkbox" id="chk-brim" checked>
+      <label class="checkbox-group" id="lbl-brim">
+        <span>Add Integrated Bed Brim</span>
+        <input type="checkbox" id="chk-brim">
       </label>
+      <div id="brim-warn" class="warning-banner">
+        ⚠️ <strong>Notice:</strong> The base port is an External (Male) fitting. Adding a bed brim will require flush trimming after printing so female hose connections can slide over smoothly.
+      </div>
     </div>
 
     <div class="export-container">
@@ -320,7 +323,7 @@
         taperLen: 40,
         wall: 3.5,
         barbs: false,
-        brim: true
+        brim: false
       };
 
       // --- THREE.JS SETUP ---
@@ -379,7 +382,7 @@
         }
       }
 
-      // --- GEOMETRY GENERATION (WIDE BASE AT BOTTOM) ---
+      // --- GEOMETRY GENERATION ---
       function generateAdapterGeometry() {
         const points = [];
         const segments = 64;
@@ -395,6 +398,14 @@
         const topDia = isA_Larger ? params.outDia : params.inDia;
         const topFit = isA_Larger ? params.outFit : params.inFit;
         const topLen = isA_Larger ? params.outLen : params.inLen;
+
+        // Display warning banner if brim is enabled AND base is External (Male)
+        const brimWarn = document.getElementById('brim-warn');
+        if (bottomFit === 'external' && params.brim) {
+          brimWarn.style.display = 'block';
+        } else {
+          brimWarn.style.display = 'none';
+        }
 
         // Bottom Radii Calculations
         const botRadOuterBottom = bottomFit === 'external' ? bottomDia / 2 : (bottomDia / 2) + params.wall;
@@ -420,199 +431,4 @@
           const brimWidth = 12.0;
           const brimHeight = 0.4;
           points.push(new THREE.Vector2(botRadOuterBottom + brimWidth, y0));
-          points.push(new THREE.Vector2(botRadOuterBottom + brimWidth, brimHeight));
-          points.push(new THREE.Vector2(botRadOuterBottom, brimHeight));
-        } else {
-          if (bottomFit === 'external') {
-            points.push(new THREE.Vector2(botRadOuterBottom - chamferSize, y0));
-            points.push(new THREE.Vector2(botRadOuterBottom, chamferSize));
-          } else {
-            points.push(new THREE.Vector2(botRadOuterBottom, y0));
-          }
-        }
-
-        if (bottomFit === 'external' && params.barbs) {
-          const numBarbs = 2;
-          const barbStep = (y1 - (params.brim ? 0.4 : chamferSize) - 5) / numBarbs;
-          let currentY = (params.brim ? 0.4 : chamferSize) + 5;
-          for (let i = 0; i < numBarbs; i++) {
-            points.push(new THREE.Vector2(botRadOuterBottom, currentY));
-            points.push(new THREE.Vector2(botRadOuterBottom + 0.8, currentY + 1.5));
-            points.push(new THREE.Vector2(botRadOuterBottom, currentY + 2.0));
-            currentY += barbStep;
-          }
-        }
-        
-        points.push(new THREE.Vector2(botRadOuterTop, y1));
-        points.push(new THREE.Vector2(topRadOuterBottom, y2));
-
-        if (topFit === 'external' && params.barbs) {
-          const numBarbs = 2;
-          const barbStep = (topLen - chamferSize - 5) / numBarbs;
-          let currentY = y2 + 5;
-          for (let i = 0; i < numBarbs; i++) {
-            points.push(new THREE.Vector2(topRadOuterBottom, currentY));
-            points.push(new THREE.Vector2(topRadOuterBottom + 0.8, currentY + 1.5));
-            points.push(new THREE.Vector2(topRadOuterBottom, currentY + 2.0));
-            currentY += barbStep;
-          }
-        }
-
-        if (topFit === 'external') {
-          points.push(new THREE.Vector2(topRadOuterTop, y3 - chamferSize));
-          points.push(new THREE.Vector2(topRadOuterTop - chamferSize, y3));
-        } else {
-          points.push(new THREE.Vector2(topRadOuterTop, y3));
-        }
-
-        // --- INNER BORE PROFILE ---
-        if (topFit === 'internal') {
-          points.push(new THREE.Vector2(topRadInnerTop + chamferSize, y3));
-          points.push(new THREE.Vector2(topRadInnerTop, y3 - chamferSize));
-        } else {
-          points.push(new THREE.Vector2(topRadInnerTop, y3));
-        }
-
-        points.push(new THREE.Vector2(topRadInnerBottom, y2));
-        points.push(new THREE.Vector2(botRadInnerTop, y1));
-
-        if (bottomFit === 'internal') {
-          points.push(new THREE.Vector2(botRadInnerBottom, y0 + chamferSize));
-          points.push(new THREE.Vector2(botRadInnerBottom + chamferSize, y0));
-        } else {
-          points.push(new THREE.Vector2(botRadInnerBottom, y0));
-        }
-
-        if (params.brim) {
-          points.push(new THREE.Vector2(botRadOuterBottom + 12.0, y0));
-        } else if (bottomFit === 'external') {
-          points.push(new THREE.Vector2(botRadOuterBottom - chamferSize, y0));
-        } else {
-          points.push(new THREE.Vector2(botRadOuterBottom, y0));
-        }
-
-        // Generate geometry natively along Y (Upright axis)
-        const geometry = new THREE.LatheGeometry(points, segments);
-        geometry.computeVertexNormals();
-        return geometry;
-      }
-
-      function updateMesh() {
-        if (currentMesh) {
-          scene.remove(currentMesh);
-          currentMesh.geometry.dispose();
-        }
-
-        const geom = generateAdapterGeometry();
-        currentMesh = new THREE.Mesh(geom, adapterMaterial);
-        scene.add(currentMesh);
-      }
-
-      // --- UI LISTENERS ---
-      function bindSlider(id, paramKey, displayId) {
-        const slider = document.getElementById(id);
-        slider.addEventListener('input', (e) => {
-          const val = parseFloat(e.target.value);
-          params[paramKey] = val;
-          document.getElementById(displayId).textContent = val;
-          updateMesh();
-        });
-      }
-
-      bindSlider('in-dia', 'inDia', 'val-in-dia');
-      bindSlider('in-len', 'inLen', 'val-in-len');
-      bindSlider('out-dia', 'outDia', 'val-out-dia');
-      bindSlider('out-len', 'outLen', 'val-out-len');
-      bindSlider('taper-len', 'taperLen', 'val-taper-len');
-      bindSlider('wall', 'wall', 'val-wall');
-
-      function bindToggleGroup(groupId, paramKey) {
-        const group = document.getElementById(groupId);
-        const buttons = group.querySelectorAll('button');
-        buttons.forEach(btn => {
-          btn.addEventListener('click', () => {
-            buttons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            params[paramKey] = btn.dataset.value;
-            updateMesh();
-          });
-        });
-      }
-
-      bindToggleGroup('in-fit-group', 'inFit');
-      bindToggleGroup('out-fit-group', 'outFit');
-
-      document.getElementById('chk-barbs').addEventListener('change', (e) => {
-        params.barbs = e.target.checked;
-        updateMesh();
-      });
-
-      document.getElementById('chk-brim').addEventListener('change', (e) => {
-        params.brim = e.target.checked;
-        updateMesh();
-      });
-
-      // --- STL EXPORTER ---
-      document.getElementById('btn-export-stl').addEventListener('click', () => {
-        if (!currentMesh) return;
-
-        const geometry = currentMesh.geometry.clone();
-        
-        // Convert Y-up (Three.js) to Z-up (Standard STL Slicer Bed standard)
-        geometry.rotateX(Math.PI / 2);
-
-        const position = geometry.attributes.position;
-        const index = geometry.index;
-        
-        let stlText = 'solid vertical_dust_adapter\n';
-        const getVector = (i) => new THREE.Vector3(position.getX(i), position.getY(i), position.getZ(i));
-
-        if (index) {
-          for (let i = 0; i < index.count; i += 3) {
-            const a = getVector(index.getX(i));
-            const b = getVector(index.getX(i + 1));
-            const c = getVector(index.getX(i + 2));
-
-            const cb = new THREE.Vector3().subVectors(c, b);
-            const ab = new THREE.Vector3().subVectors(a, b);
-            const normal = new THREE.Vector3().crossVectors(cb, ab).normalize();
-
-            stlText += `  facet normal ${normal.x} ${normal.y} ${normal.z}\n`;
-            stlText += `    outer loop\n`;
-            stlText += `      vertex ${a.x} ${a.y} ${a.z}\n`;
-            stlText += `      vertex ${b.x} ${b.y} ${b.z}\n`;
-            stlText += `      vertex ${c.x} ${c.y} ${c.z}\n`;
-            stlText += `    endloop\n`;
-            stlText += `  endfacet\n`;
-          }
-        }
-
-        stlText += 'endsolid vertical_dust_adapter\n';
-
-        const blob = new Blob([stlText], { type: 'text/plain' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `dust_adapter_${params.inDia}mm_to_${params.outDia}mm.stl`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-      });
-
-      // --- RENDER LOOP ---
-      window.addEventListener('resize', () => {
-        camera.aspect = container.clientWidth / container.clientHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(container.clientWidth, container.clientHeight);
-      });
-
-      function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-      }
-
-      updateMesh();
-      animate();
-    });
-  </script>
-</body>
-</html>
+          points.push(new THREE.Vector
