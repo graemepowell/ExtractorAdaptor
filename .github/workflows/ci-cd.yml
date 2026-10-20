@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate:
-    name: Code Validation & Linting
+    name: Code Validation & Automated Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -21,6 +21,15 @@ jobs:
 
       - name: Check HTML Syntax
         run: npx --yes htmlhint index.html dev/index.html
+
+      - name: Install Playwright & Browsers
+        run: |
+          npm init -y
+          npm install --save-dev @playwright/test
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright Smoke Test
+        run: npx playwright test
 
   deploy-dev:
     name: Deploy Dev Preview
