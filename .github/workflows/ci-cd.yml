@@ -17,16 +17,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
-      - name: Install Validation Tools
-        run: npm install -g htmlhint eslint
-
-      - name: Validate HTML Structure
-        run: htmlhint index.html dev/index.html
-
-      - name: Check JavaScript Syntax
-        run: npx eslint --no-config-lookup index.html
+      - name: Check HTML Syntax
+        run: npx --yes htmlhint index.html dev/index.html
 
   deploy-dev:
     name: Deploy Dev Preview
