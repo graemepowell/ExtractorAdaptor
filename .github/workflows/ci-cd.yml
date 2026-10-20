@@ -26,7 +26,7 @@ jobs:
         run: htmlhint index.html dev/index.html
 
       - name: Check JavaScript Syntax
-        run: eslint --no-eslintrc --env es2021,browser --parserOptions=module index.html
+        run: npx eslint --no-config-lookup index.html
 
   deploy-dev:
     name: Deploy Dev Preview
@@ -92,4 +92,3 @@ jobs:
       - name: Deploy to GitHub Pages Production
         id: deployment
         uses: actions/deploy-pages@v4
-
