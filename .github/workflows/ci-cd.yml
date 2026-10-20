@@ -87,13 +87,13 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Calculate Next Version & Generate Release Notes
+      - name: Calculate Next Version, Update index.html & Create Release
         id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm install -g semantic-release @semantic-release/git @semantic-release/exec
-          npx semantic-release || true
+          npm install -g semantic-release @semantic-release/git @semantic-release/exec @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/github
+          npx semantic-release
 
       - name: Stage Production & Dev Structure
         run: |
