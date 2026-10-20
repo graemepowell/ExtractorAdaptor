@@ -1,10 +1,10 @@
-<!-- ExtractorAdaptor - Version 2.3.0 -->
+<!-- ExtractorAdaptor - Version 2.4.0 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>3D Printable Dust Extraction Hose Adapter Generator (v2.3.0)</title>
+  <title>3D Printable Dust Extraction Hose Adapter Generator (v2.4.0)</title>
   <style>
     :root {
       --bg-color: #0f172a;
@@ -55,6 +55,7 @@
       background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
       height: 100%;
       order: 2;
+      touch-action: none;
     }
 
     .header {
@@ -333,9 +334,15 @@
     }
   </style>
 
-  <!-- Libraries with fallback detection -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- ES Import Map for deterministic dependency loading -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 <body>
 
@@ -344,7 +351,7 @@
     <div class="header">
       <div class="header-title-row">
         <h1>Dust Adapter Generator</h1>
-        <span class="version-tag">v2.3.0</span>
+        <span class="version-tag">v2.4.0</span>
       </div>
       <p>Parametric 3D printable vacuum adapters</p>
     </div>
@@ -473,23 +480,11 @@
     <div id="info-overlay">Drag to rotate | Scroll to zoom</div>
   </div>
 
-  <script>
-    function getOrbitControls() {
-      if (typeof THREE !== 'undefined' && THREE.OrbitControls) return THREE.OrbitControls;
-      if (typeof OrbitControls !== 'undefined') return OrbitControls;
-      if (window.OrbitControls) return window.OrbitControls;
-      return null;
-    }
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-    function startApp() {
-      const OrbitClass = getOrbitControls();
-
-      if (typeof THREE === 'undefined' || !OrbitClass) {
-        const errBox = document.getElementById('error-box');
-        if (errBox) errBox.style.display = 'block';
-        return;
-      }
-
+    function initApp() {
       const errBox = document.getElementById('error-box');
       if (errBox) errBox.style.display = 'none';
 
@@ -528,7 +523,7 @@
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       container.appendChild(renderer.domElement);
 
-      const controls = new OrbitClass(camera, renderer.domElement);
+      const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.target.set(0, 50, 0);
@@ -623,4 +618,324 @@
           let currentY = (params.brim ? 0.4 : chamferSize) + 5;
           for (let i = 0; i < numBarbs; i++) {
             points.push(new THREE.Vector2(botRadOuterBottom, currentY));
-            points.push(new THREE.Vector
+            points.push(new THREE.Vector2(botRadOuterBottom + 0.8, currentY + 1.5));
+            points.push(new THREE.Vector2(botRadOuterBottom, currentY + 2.0));
+            currentY += barbStep;
+          }
+        }
+
+        points.push(new THREE.Vector2(botRadOuterTop, y1));
+        points.push(new THREE.Vector2(topRadOuterBottom, y2));
+
+        // Top Barbs
+        if (params.topFit === 'external' && params.topBarbs) {
+          const numBarbs = 2;
+          const barbStep = (params.topLen - chamferSize - 5) / numBarbs;
+          let currentY = y2 + 5;
+          for (let i = 0; i < numBarbs; i++) {
+            points.push(new THREE.Vector2(topRadOuterBottom, currentY));
+            points.push(new THREE.Vector2(topRadOuterBottom + 0.8, currentY + 1.5));
+            points.push(new THREE.Vector2(topRadOuterBottom, currentY + 2.0));
+            currentY += barbStep;
+          }
+        }
+
+        if (params.topFit === 'external') {
+          points.push(new THREE.Vector2(topRadOuterTop, y3 - chamferSize));
+          points.push(new THREE.Vector2(topRadOuterTop - chamferSize, y3));
+        } else {
+          points.push(new THREE.Vector2(topRadOuterTop, y3));
+        }
+
+        // --- INNER BORE PROFILE ---
+        if (params.topFit === 'internal') {
+          points.push(new THREE.Vector2(topRadInnerTop + chamferSize, y3));
+          points.push(new THREE.Vector2(topRadInnerTop, y3 - chamferSize));
+        } else {
+          points.push(new THREE.Vector2(topRadInnerTop, y3));
+        }
+
+        points.push(new THREE.Vector2(topRadInnerBottom, y2));
+        points.push(new THREE.Vector2(botRadInnerTop, y1));
+
+        if (params.botFit === 'internal') {
+          points.push(new THREE.Vector2(botRadInnerBottom, y0 + chamferSize));
+          points.push(new THREE.Vector2(botRadInnerBottom + chamferSize, y0));
+        } else {
+          points.push(new THREE.Vector2(botRadInnerBottom, y0));
+        }
+
+        if (params.brim) {
+          points.push(new THREE.Vector2(botRadOuterBottom + 12.0, y0));
+        } else if (params.botFit === 'external') {
+          points.push(new THREE.Vector2(botRadOuterBottom - chamferSize, y0));
+        } else {
+          points.push(new THREE.Vector2(botRadOuterBottom, y0));
+        }
+
+        const geometry = new THREE.LatheGeometry(points, segments);
+        geometry.computeVertexNormals();
+        return geometry;
+      }
+
+      function updateMesh() {
+        if (currentMesh) {
+          scene.remove(currentMesh);
+          currentMesh.geometry.dispose();
+        }
+
+        const geom = generateAdapterGeometry();
+        currentMesh = new THREE.Mesh(geom, adapterMaterial);
+        scene.add(currentMesh);
+      }
+
+      function updateUIControls() {
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.value = val;
+        };
+        const setTxt = (id, txt) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = txt;
+        };
+        const setGroup = (groupId, val) => {
+          const group = document.getElementById(groupId);
+          if (!group) return;
+          group.querySelectorAll('button').forEach(btn => {
+            if (btn.dataset.value === val) btn.classList.add('active');
+            else btn.classList.remove('active');
+          });
+        };
+
+        setVal('top-dia', params.topDia); setTxt('val-top-dia', params.topDia);
+        setVal('top-len', params.topLen); setTxt('val-top-len', params.topLen);
+        setGroup('top-fit-group', params.topFit);
+
+        setVal('bot-dia', params.botDia); setTxt('val-bot-dia', params.botDia);
+        setVal('bot-len', params.botLen); setTxt('val-bot-len', params.botLen);
+        setGroup('bot-fit-group', params.botFit);
+      }
+
+      // --- EVENT HANDLERS ---
+      const topPreset = document.getElementById('top-preset-select');
+      const botPreset = document.getElementById('bot-preset-select');
+
+      if (topPreset) {
+        topPreset.addEventListener('change', (e) => {
+          const conf = presetValues[e.target.value];
+          if (conf) {
+            params.topDia = conf.dia;
+            params.topFit = conf.fit;
+            params.topLen = conf.len;
+
+            if (params.topDia > params.botDia) {
+              params.botDia = params.topDia;
+              if (botPreset) botPreset.value = 'custom';
+            }
+
+            updateUIControls();
+            updateMesh();
+          }
+        });
+      }
+
+      if (botPreset) {
+        botPreset.addEventListener('change', (e) => {
+          const conf = presetValues[e.target.value];
+          if (conf) {
+            params.botDia = conf.dia;
+            params.botFit = conf.fit;
+            params.botLen = conf.len;
+
+            if (params.botDia < params.topDia) {
+              params.topDia = params.botDia;
+              if (topPreset) topPreset.value = 'custom';
+            }
+
+            updateUIControls();
+            updateMesh();
+          }
+        });
+      }
+
+      const topSlider = document.getElementById('top-dia');
+      const botSlider = document.getElementById('bot-dia');
+
+      if (topSlider) {
+        topSlider.addEventListener('input', (e) => {
+          let val = parseFloat(e.target.value);
+          params.topDia = val;
+          const display = document.getElementById('val-top-dia');
+          if (display) display.textContent = val;
+
+          if (topPreset) topPreset.value = 'custom';
+
+          if (params.topDia > params.botDia) {
+            params.botDia = params.topDia;
+            if (botSlider) botSlider.value = params.botDia;
+            const botDisplay = document.getElementById('val-bot-dia');
+            if (botDisplay) botDisplay.textContent = params.botDia;
+            if (botPreset) botPreset.value = 'custom';
+          }
+
+          updateMesh();
+        });
+      }
+
+      if (botSlider) {
+        botSlider.addEventListener('input', (e) => {
+          let val = parseFloat(e.target.value);
+          params.botDia = val;
+          const display = document.getElementById('val-bot-dia');
+          if (display) display.textContent = val;
+
+          if (botPreset) botPreset.value = 'custom';
+
+          if (params.botDia < params.topDia) {
+            params.topDia = params.botDia;
+            if (topSlider) topSlider.value = params.topDia;
+            const topDisplay = document.getElementById('val-top-dia');
+            if (topDisplay) topDisplay.textContent = params.topDia;
+            if (topPreset) topPreset.value = 'custom';
+          }
+
+          updateMesh();
+        });
+      }
+
+      function bindSlider(id, paramKey, displayId, presetSelectEl) {
+        const slider = document.getElementById(id);
+        if (!slider) return;
+        slider.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          params[paramKey] = val;
+          const display = document.getElementById(displayId);
+          if (display) display.textContent = val;
+          if (presetSelectEl) presetSelectEl.value = 'custom';
+          updateMesh();
+        });
+      }
+
+      bindSlider('top-len', 'topLen', 'val-top-len', topPreset);
+      bindSlider('bot-len', 'botLen', 'val-bot-len', botPreset);
+      bindSlider('taper-len', 'taperLen', 'val-taper-len');
+      bindSlider('wall', 'wall', 'val-wall');
+
+      function bindToggleGroup(groupId, paramKey, presetSelectEl) {
+        const group = document.getElementById(groupId);
+        if (!group) return;
+        const buttons = group.querySelectorAll('button');
+        buttons.forEach(btn => {
+          btn.addEventListener('click', () => {
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            params[paramKey] = btn.dataset.value;
+            if (presetSelectEl) presetSelectEl.value = 'custom';
+            updateMesh();
+          });
+        });
+      }
+
+      bindToggleGroup('top-fit-group', 'topFit', topPreset);
+      bindToggleGroup('bot-fit-group', 'botFit', botPreset);
+
+      const chkTopBarbs = document.getElementById('chk-top-barbs');
+      if (chkTopBarbs) {
+        chkTopBarbs.addEventListener('change', (e) => {
+          params.topBarbs = e.target.checked;
+          updateMesh();
+        });
+      }
+
+      const chkBotBarbs = document.getElementById('chk-bot-barbs');
+      if (chkBotBarbs) {
+        chkBotBarbs.addEventListener('change', (e) => {
+          params.botBarbs = e.target.checked;
+          updateMesh();
+        });
+      }
+
+      const chkBrim = document.getElementById('chk-brim');
+      if (chkBrim) {
+        chkBrim.addEventListener('change', (e) => {
+          params.brim = e.target.checked;
+          updateMesh();
+        });
+      }
+
+      // --- STL EXPORTER ---
+      const btnExport = document.getElementById('btn-export-stl');
+      if (btnExport) {
+        btnExport.addEventListener('click', () => {
+          if (!currentMesh) return;
+
+          const geometry = currentMesh.geometry.clone();
+          geometry.rotateX(Math.PI / 2);
+
+          const position = geometry.attributes.position;
+          const index = geometry.index;
+
+          let stlText = 'solid vertical_dust_adapter\n';
+          const getVector = (i) => new THREE.Vector3(position.getX(i), position.getY(i), position.getZ(i));
+
+          if (index) {
+            for (let i = 0; i < index.count; i += 3) {
+              const a = getVector(index.getX(i));
+              const b = getVector(index.getX(i + 1));
+              const c = getVector(index.getX(i + 2));
+
+              const cb = new THREE.Vector3().subVectors(c, b);
+              const ab = new THREE.Vector3().subVectors(a, b);
+              const normal = new THREE.Vector3().crossVectors(cb, ab).normalize();
+
+              stlText += `  facet normal ${normal.x} ${normal.y} ${normal.z}\n`;
+              stlText += `    outer loop\n`;
+              stlText += `      vertex ${a.x} ${a.y} ${a.z}\n`;
+              stlText += `      vertex ${b.x} ${b.y} ${b.z}\n`;
+              stlText += `      vertex ${c.x} ${c.y} ${c.z}\n`;
+              stlText += `    endloop\n`;
+              stlText += `  endfacet\n`;
+            }
+          }
+
+          stlText += 'endsolid vertical_dust_adapter\n';
+
+          const blob = new Blob([stlText], { type: 'text/plain' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `dust_adapter_${params.botDia}mm_to_${params.topDia}mm.stl`;
+          link.click();
+          URL.revokeObjectURL(link.href);
+        });
+      }
+
+      // --- RENDER LOOP & RESIZE HANDLING ---
+      function onWindowResize() {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+      }
+
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('orientationchange', () => {
+        setTimeout(onWindowResize, 200);
+      });
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      updateMesh();
+      animate();
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      initApp();
+    } else {
+      window.addEventListener('DOMContentLoaded', initApp);
+    }
+  </script>
+</body>
+</html>
