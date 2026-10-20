@@ -1,0 +1,95 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Code Validation & Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Validation Tools
+        run: npm install -g htmlhint eslint
+
+      - name: Validate HTML Structure
+        run: htmlhint index.html dev/index.html
+
+      - name: Check JavaScript Syntax
+        run: eslint --no-eslintrc --env es2021,browser --parserOptions=module index.html
+
+  deploy-dev:
+    name: Deploy Dev Preview
+    needs: validate
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}dev/index.html
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Stage /dev Directory Structure
+        run: |
+          mkdir -p _site/dev
+          cp index.html _site/index.html
+          cp dev/index.html _site/dev/index.html
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Deploy to GitHub Pages Preview
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy-production:
+    name: Deploy Live Production
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Stage Production Structure
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Deploy to GitHub Pages Production
+        id: deployment
+        uses: actions/deploy-pages@v4
+
