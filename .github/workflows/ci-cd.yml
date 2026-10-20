@@ -95,10 +95,11 @@ jobs:
           npm install -g semantic-release @semantic-release/git @semantic-release/exec
           npx semantic-release || true
 
-      - name: Stage Production Structure
+      - name: Stage Production & Dev Structure
         run: |
-          mkdir -p _site
+          mkdir -p _site/dev
           cp index.html _site/index.html
+          cp dev/index.html _site/dev/index.html
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
